@@ -5,7 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '점심 룰렛',
     primaryColor: '#E85D04',
-    icon: 'https://via.placeholder.com/128x128/E85D04/FFFFFF?text=L',
+    icon: 'https://raw.githubusercontent.com/sssoolleee-art/lunch-roulette/main/public/icon.png',
   },
   web: {
     host: 'localhost',
