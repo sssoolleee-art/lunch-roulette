@@ -104,11 +104,7 @@ export default function App() {
 
   function handleShare() {
     const text = `오늘 점심 "${current.name}" 어때?\n같이 정해보자 👉 점심 룰렛`;
-    if (navigator.share) {
-      navigator.share({ title: '점심 룰렛', text });
-    } else {
-      navigator.clipboard.writeText(text).then(() => alert('복사됐어요!'));
-    }
+    navigator.clipboard.writeText(text).then(() => setShowCopied(true));
   }
 
   function toggleCategory(cat: Category) {
