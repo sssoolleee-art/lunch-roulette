@@ -84,9 +84,17 @@ export default function App() {
 
   useEffect(() => {
     if (!bannerRef.current) return;
-    if (!TossAds.attachBanner.isSupported()) return;
-    const { destroy } = TossAds.attachBanner(BANNER_AD_ID, bannerRef.current);
-    return destroy;
+    if (!TossAds.initialize.isSupported()) return;
+    TossAds.initialize({
+      callbacks: {
+        onInitialized: () => {
+          if (bannerRef.current) {
+            TossAds.attachBanner(BANNER_AD_ID, bannerRef.current);
+          }
+        },
+      },
+    });
+    return () => TossAds.destroyAll();
   }, []);
 
   const spin = useCallback(async () => {
