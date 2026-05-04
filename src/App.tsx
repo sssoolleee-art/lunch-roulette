@@ -1,5 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Badge } from '@toss/tds-mobile';
+import { TossAds } from '@apps-in-toss/web-framework';
+import { showInterstitialAd } from './utils/ads';
+
+const BANNER_AD_ID = 'ait.v2.live.8731a68635444c9d';
 import {
   menus,
   pickMenu,
@@ -74,9 +78,18 @@ export default function App() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [noResult, setNoResult] = useState(false);
   const [weekRecord] = useState(() => getWeekRecord());
+  const [showCopied, setShowCopied] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
-  const spin = useCallback(() => {
+  useEffect(() => {
+    if (!bannerRef.current) return;
+    if (!TossAds.attachBanner.isSupported()) return;
+    const { destroy } = TossAds.attachBanner(BANNER_AD_ID, bannerRef.current);
+    return destroy;
+  }, []);
+
+  const spin = useCallback(async () => {
     if (isSpinning) return;
     setIsSpinning(true);
 
@@ -95,10 +108,11 @@ export default function App() {
       cardRef.current.classList.add('slot-spin');
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setCurrent(next);
       addToWeekRecord(next.category);
       setIsSpinning(false);
+      await showInterstitialAd();
     }, 400);
   }, [isSpinning, excludeCategories, excludeTags, current.name]);
 
@@ -128,6 +142,13 @@ export default function App() {
 
   return (
     <div style={styles.container}>
+
+      {/* 공유 완료 토스트 */}
+      {showCopied && (
+        <div style={styles.toast} onAnimationEnd={() => setShowCopied(false)}>
+          복사됐어요 📋
+        </div>
+      )}
 
       {/* 히어로 */}
       <div style={styles.hero}>
@@ -209,8 +230,12 @@ export default function App() {
           )}
         </div>
 
-        <div style={styles.adSlot} />
       </div>
+      {/* 하단 배너 광고 */}
+      <div style={styles.bannerWrap}>
+        <div ref={bannerRef} />
+      </div>
+
     </div>
   );
 }
@@ -334,9 +359,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '10px',
     opacity: 0.6,
   },
-  adSlot: {
-    minHeight: '60px',
-    marginTop: 'auto',
-    paddingBottom: '24px',
+  bannerWrap: {
+    position: 'sticky' as const,
+    bottom: 0,
+    width: '100%',
+    background: '#ffffff',
+  },
+  toast: {
+    position: 'fixed',
+    bottom: '32px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#191f28',
+    color: '#ffffff',
+    padding: '12px 20px',
+    borderRadius: '99px',
+    fontSize: '14px',
+    fontWeight: 500,
+    zIndex: 1000,
+    animation: 'fadeout 2s forwards',
   },
 };
