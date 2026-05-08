@@ -39,3 +39,9 @@ button {
 .slot-spin {
   animation: slot-blur 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+@keyframes fadeout {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}

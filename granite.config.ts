@@ -5,7 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '뭐먹지',
     primaryColor: '#E85D04',
-    icon: 'https://raw.githubusercontent.com/sssoolleee-art/lunch-roulette/main/public/icon.png',
+    icon: 'https://static.toss.im/appsintoss/27863/8cd6680f-c7e7-46a4-aedb-7ac5a414798a.png',
   },
   web: {
     host: 'localhost',

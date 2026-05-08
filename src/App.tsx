@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Badge } from '@toss/tds-mobile';
 import { TossAds } from '@apps-in-toss/web-framework';
-import { showInterstitialAd } from './utils/ads';
+import { showInterstitialAd, isAdFree, restoreAdFree, buyAdFree } from './utils/ads';
 
 const BANNER_AD_ID = 'ait.v2.live.8731a68635444c9d';
 import {
@@ -79,10 +79,17 @@ export default function App() {
   const [noResult, setNoResult] = useState(false);
   const [weekRecord] = useState(() => getWeekRecord());
   const [showCopied, setShowCopied] = useState(false);
+  const [adFree, setAdFree] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    restoreAdFree(() => setAdFree(true));
+  }, []);
+
+  useEffect(() => {
+    if (adFree) return;
     if (!bannerRef.current) return;
     if (!TossAds.initialize.isSupported()) return;
     TossAds.initialize({
@@ -95,7 +102,7 @@ export default function App() {
       },
     });
     return () => TossAds.destroyAll();
-  }, []);
+  }, [adFree]);
 
   const spin = useCallback(async () => {
     if (isSpinning) return;
@@ -120,7 +127,7 @@ export default function App() {
       setCurrent(next);
       addToWeekRecord(next.category);
       setIsSpinning(false);
-      await showInterstitialAd();
+      if (!isAdFree()) await showInterstitialAd();
     }, 400);
   }, [isSpinning, excludeCategories, excludeTags, current.name]);
 
@@ -198,6 +205,17 @@ export default function App() {
           </button>
         </div>
 
+        {/* IAP 버튼 */}
+        {!adFree && (
+          <button
+            onClick={() => { if (purchasing) return; setPurchasing(true); buyAdFree(() => setAdFree(true), () => setPurchasing(false)); }}
+            disabled={purchasing}
+            style={{ width: '100%', padding: '14px', fontSize: '14px', fontWeight: 700, color: '#E85D04', background: '#FFF3EF', border: 'none', borderRadius: '14px', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.3px', marginBottom: '16px' }}
+          >
+            {purchasing ? '처리 중...' : '✨ ₩990에 광고 없이 즐기기'}
+          </button>
+        )}
+
         {/* 필터 */}
         <div style={styles.filterSection}>
           <button style={styles.filterToggle} onClick={() => setFilterOpen(!filterOpen)}>
@@ -240,9 +258,11 @@ export default function App() {
 
       </div>
       {/* 하단 배너 광고 */}
-      <div style={styles.bannerWrap}>
-        <div ref={bannerRef} />
-      </div>
+      {!adFree && (
+        <div style={styles.bannerWrap}>
+          <div ref={bannerRef} />
+        </div>
+      )}
 
     </div>
   );
