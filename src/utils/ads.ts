@@ -33,9 +33,16 @@ export function buyAdFree(onSuccess: () => void, onDone: () => void) {
 }
 
 export const INTERSTITIAL_AD_ID = 'ait.v2.live.49d62eb4399c4c43';
+export const REWARDED_AD_ID = 'ait.v2.live.1375c26153aa4915';
+
+// 전면/리워드 풀스크린 광고가 동시에 뜨지 않도록 (스택 방지)
+let adInFlight = false;
 
 export function showInterstitialAd(): Promise<void> {
   return new Promise((resolve) => {
+    if (adInFlight || !loadFullScreenAd.isSupported()) { resolve(); return; }
+    adInFlight = true;
+    const finish = () => { adInFlight = false; resolve(); };
     const cleanup = loadFullScreenAd({
       options: { adGroupId: INTERSTITIAL_AD_ID },
       onEvent: (event) => {
@@ -43,14 +50,53 @@ export function showInterstitialAd(): Promise<void> {
           showFullScreenAd({
             options: { adGroupId: INTERSTITIAL_AD_ID },
             onEvent: (e) => {
-              if (e.type === 'dismissed') resolve();
+              if (e.type === 'dismissed') finish();
             },
-            onError: () => resolve(),
+            onError: () => finish(),
           });
         }
       },
-      onError: () => resolve(),
+      onError: () => finish(),
     });
-    setTimeout(() => { cleanup(); resolve(); }, 10000);
+    setTimeout(() => { cleanup(); finish(); }, 10000);
+  });
+}
+
+export function isRewardedSupported(): boolean {
+  return loadFullScreenAd.isSupported();
+}
+
+// 리워드 광고: 광고를 보여주되 끝나면(적립/닫힘 무관) resolve. best-effort.
+export function showRewardedAd(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (adInFlight || !loadFullScreenAd.isSupported()) { resolve(false); return; }
+    adInFlight = true;
+    let settled = false;
+    const timer: { id?: ReturnType<typeof setTimeout> } = {};
+    const done = (c: () => void, result: boolean) => {
+      if (settled) return;
+      settled = true;
+      adInFlight = false;
+      clearTimeout(timer.id);
+      c();
+      resolve(result);
+    };
+    const cleanup = loadFullScreenAd({
+      options: { adGroupId: REWARDED_AD_ID },
+      onEvent: (event) => {
+        if (event.type === 'loaded') {
+          showFullScreenAd({
+            options: { adGroupId: REWARDED_AD_ID },
+            onEvent: (e) => {
+              if (e.type === 'userEarnedReward') done(cleanup, true);
+              else if (e.type === 'dismissed') done(cleanup, true);
+            },
+            onError: () => done(cleanup, false),
+          });
+        }
+      },
+      onError: () => done(cleanup, false),
+    });
+    timer.id = setTimeout(() => done(cleanup, false), 30000);
   });
 }

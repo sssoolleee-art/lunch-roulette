@@ -1,7 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Badge } from '@toss/tds-mobile';
-import { TossAds } from '@apps-in-toss/web-framework';
-import { showInterstitialAd, isAdFree, restoreAdFree, buyAdFree } from './utils/ads';
+import { TossAds, getTossShareLink, share } from '@apps-in-toss/web-framework';
+import { showInterstitialAd, showRewardedAd, isAdFree, restoreAdFree, buyAdFree } from './utils/ads';
+import { haptic } from './utils/haptic';
+
+const APP_DEEPLINK = 'intoss://lunch-roulette';
 
 const BANNER_AD_ID = 'ait.v2.live.8731a68635444c9d';
 import {
@@ -70,6 +73,12 @@ function getMenuEmoji(name: string, category: Category): string {
   return fallbacks[category];
 }
 
+function buildReason(menu: { name: string; category: Category; tags: Tag[] }): string {
+  const tag = menu.tags[0];
+  if (tag) return `오늘은 ${tag} 땡기는 날! "${menu.name}"가 딱이에요 🎯`;
+  return `고민 끝! 오늘 점심은 "${menu.name}"로 정했어요 🎯`;
+}
+
 export default function App() {
   const [current, setCurrent] = useState(() => menus[Math.floor(Math.random() * menus.length)]);
   const [excludeCategories, setExcludeCategories] = useState<Category[]>([]);
@@ -81,6 +90,8 @@ export default function App() {
   const [showCopied, setShowCopied] = useState(false);
   const [adFree, setAdFree] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const [strongReason, setStrongReason] = useState<string | null>(null);
+  const [pickLoading, setPickLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
 
@@ -107,11 +118,14 @@ export default function App() {
   const spin = useCallback(async () => {
     if (isSpinning) return;
     setIsSpinning(true);
+    setStrongReason(null);
+    haptic('tickWeak');
 
     const next = pickMenu(excludeCategories, excludeTags, current.name);
     if (!next) {
       setIsSpinning(false);
       setNoResult(true);
+      haptic('error');
       setTimeout(() => setNoResult(false), 2000);
       return;
     }
@@ -127,13 +141,38 @@ export default function App() {
       setCurrent(next);
       addToWeekRecord(next.category);
       setIsSpinning(false);
+      haptic('success');
       if (!isAdFree()) await showInterstitialAd();
     }, 400);
   }, [isSpinning, excludeCategories, excludeTags, current.name]);
 
-  function handleShare() {
-    const text = `오늘 점심 "${current.name}" 어때?\n같이 정해보자 👉 점심 룰렛`;
-    navigator.clipboard.writeText(text).then(() => setShowCopied(true));
+  // 결정장애 모드: 리워드 광고 본 뒤 이유를 붙여 강하게 추천 (고eCPM 리워드 채널)
+  const handleStrongPick = useCallback(async () => {
+    if (pickLoading || isSpinning) return;
+    const next = pickMenu(excludeCategories, excludeTags, current.name) ?? current;
+    haptic('tap');
+    if (!isAdFree()) {
+      setPickLoading(true);
+      await showRewardedAd();
+      setPickLoading(false);
+    }
+    setCurrent(next);
+    addToWeekRecord(next.category);
+    setStrongReason(buildReason(next));
+    haptic('success');
+  }, [pickLoading, isSpinning, excludeCategories, excludeTags, current]);
+
+  async function handleShare() {
+    const base = `오늘 점심 "${current.name}" 어때? 같이 정해보자 🍽`;
+    haptic('tap');
+    let link = '';
+    try { link = await getTossShareLink(APP_DEEPLINK); } catch { /* 토스 앱 밖 */ }
+    const message = link ? `${base}\n👉 뭐먹지 룰렛\n${link}` : base;
+    try {
+      await share({ message });
+    } catch {
+      try { await navigator.clipboard.writeText(message); setShowCopied(true); } catch { /* ignore */ }
+    }
   }
 
   function toggleCategory(cat: Category) {
@@ -186,6 +225,11 @@ export default function App() {
           ))}
         </div>
 
+        {/* 강력 추천 이유 배너 */}
+        {strongReason && (
+          <div style={styles.reasonBanner}>{strongReason}</div>
+        )}
+
         {/* 주간 기록 — 가장 많이 뽑은 카테고리 TOP3 */}
         {weekEntries.length > 0 && (
           <p style={styles.weekText}>
@@ -200,6 +244,11 @@ export default function App() {
           <Button display="full" size="xlarge" color="dark" onClick={spin} loading={isSpinning}>
             {noResult ? '조건에 맞는 메뉴가 없어요' : '다시 뽑기'}
           </Button>
+          {!adFree && (
+            <button style={styles.strongBtn} onClick={handleStrongPick} disabled={pickLoading}>
+              {pickLoading ? '추천 준비 중…' : '🎯 결정 장애? 광고 보고 강력 추천받기'}
+            </button>
+          )}
           <button style={styles.shareBtn} onClick={handleShare}>
             친구한테 공유하기
           </button>
@@ -323,6 +372,32 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '2px',
     marginBottom: '28px',
+  },
+  strongBtn: {
+    width: '100%',
+    padding: '13px',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#E85D04',
+    background: '#FFF3EF',
+    border: 'none',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    letterSpacing: '-0.3px',
+    fontFamily: 'inherit',
+    marginTop: '8px',
+  },
+  reasonBanner: {
+    background: '#FFF3EF',
+    border: '1px solid #FFD9C7',
+    borderRadius: '14px',
+    padding: '14px 16px',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#E85D04',
+    marginBottom: '16px',
+    lineHeight: 1.5,
+    letterSpacing: '-0.3px',
   },
   shareBtn: {
     width: '100%',
