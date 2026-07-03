@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Badge } from '@toss/tds-mobile';
-import { TossAds, getTossShareLink, share } from '@apps-in-toss/web-framework';
+import { TossAds, getTossShareLink, share, openURL } from '@apps-in-toss/web-framework';
+// 미니앱 간 이동 (크로스 프로모션) — 토스 밖이면 무시
+const openMiniApp = (link: string) => { openURL(link).catch(() => {}); };
+
 import { showInterstitialAd, showRewardedAd, isAdFree, restoreAdFree, buyAdFree } from './utils/ads';
 import { haptic } from './utils/haptic';
 
@@ -252,6 +255,9 @@ export default function App() {
           <button style={styles.shareBtn} onClick={handleShare}>
             친구한테 공유하기
           </button>
+          {/* 크로스 프로모션 */}
+          <button style={{ width: '100%', padding: '14px', fontSize: 14, fontWeight: 700, color: '#fff', background: 'linear-gradient(90deg, #2D1B69, #4C1D95)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => openMiniApp('intoss://oxquiz')}>🧠 하루 10문제 두뇌 퀴즈 · 두뇌 나이 확인 ›</button>
+          <button style={{ width: '100%', padding: '14px', fontSize: 14, fontWeight: 700, color: '#E9D5FF', background: 'rgba(168,85,247,0.14)', border: '1px solid rgba(168,85,247,0.4)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => openMiniApp('intoss://fortune-today-kr')}>🔮 오늘의 운세 무료로 보기 ›</button>
         </div>
 
         {/* IAP 버튼 */}
