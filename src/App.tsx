@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Badge } from '@toss/tds-mobile';
-import { TossAds, getTossShareLink, share, openURL } from '@apps-in-toss/web-framework';
+import { TossAds, getTossShareLink, share, openURL, eventLog } from '@apps-in-toss/web-framework';
 // 미니앱 간 이동 (크로스 프로모션) — 토스 밖이면 무시
-const openMiniApp = (link: string) => { openURL(link).catch(() => {}); };
+const openMiniApp = (link: string) => {
+  try { void eventLog({ log_name: 'cross_promo_click', log_type: 'event', params: { to: link } }).catch(() => {}); } catch { /* ignore */ }
+  openURL(link).catch(() => {});
+};
 
 import { showInterstitialAd, showRewardedAd, isAdFree, restoreAdFree, buyAdFree } from './utils/ads';
 import { haptic } from './utils/haptic';
